@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VEX Scout AI</title>
+  <title>VEX Scout AI (Free)</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
@@ -12,31 +12,61 @@
       <h1>VEX Scout AI</h1>
       <div class="tag">Free • Cloudflare</div>
     </header>
-    <p class="sub">Auto-load latest season → pick event → pick division → load matches → analyze teams → export CSV.</p>
+    <p class="sub">Auto-load latest season → search & pick event → pick division → load matches → analyze teams → export CSV.</p>
 
     <!-- Seasons & Events -->
     <section class="card">
       <h2>Step 1 — Seasons & Events</h2>
+
       <div class="row">
         <label>Season</label>
         <select id="seasonSelect"><option>Loading seasons…</option></select>
         <button id="btnReloadSeasons">Reload</button>
       </div>
+
       <div class="row">
-        <label>Event</label>
-        <select id="eventSelect"><option>Pick a season first…</option></select>
+        <label>Search events</label>
+        <input id="eventSearch" placeholder="Type SKU, event name, city, state…"/>
+        <select id="eventFilter">
+          <option value="all">All</option>
+          <option value="upcoming">Upcoming only</option>
+        </select>
+        <button id="btnRefreshEvents">Refresh</button>
       </div>
+
+      <div class="mini" id="status"></div>
+
+      <div id="eventsWrap" class="tableWrap">
+        <table class="grid sticky">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th>Location</th>
+              <th>Dates</th>
+              <th>Program</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="eventsTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Divisions -->
+    <section class="card" id="divisionsCard" hidden>
+      <h2>Step 2 — Divisions</h2>
       <div class="row">
         <label>Division</label>
         <select id="divisionSelect"><option>Pick an event first…</option></select>
         <button id="btnLoadMatches" disabled>Load matches</button>
+        <a id="testDivisionsLink" class="mini" target="_blank" rel="noopener noreferrer"></a>
       </div>
-      <div class="mini" id="status"></div>
     </section>
 
     <!-- Matches -->
     <section class="card" id="matchesCard" hidden>
-      <h2>Step 2 — Matches</h2>
+      <h2>Step 3 — Matches</h2>
       <table class="grid" id="matchesTable">
         <thead>
           <tr><th>Match</th><th>Red</th><th>Blue</th><th>Scores</th><th></th></tr>
@@ -47,7 +77,7 @@
 
     <!-- YouTube -->
     <section class="card">
-      <h2>Step 3 — Livestream / VOD</h2>
+      <h2>Step 4 — Livestream / VOD</h2>
       <div class="row">
         <label>YouTube URL</label>
         <input id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..."/>
@@ -58,7 +88,7 @@
 
     <!-- Analysis -->
     <section class="card" id="analysisCard" hidden>
-      <h2>Step 4 — Tag Strategy per Team</h2>
+      <h2>Step 5 — Tag Strategy per Team</h2>
       <table class="grid" id="analysisTable">
         <thead>
           <tr>
@@ -80,7 +110,7 @@
       </table>
     </section>
 
-    <footer class="mini">Token stays server-side. No YouTube key in browser.</footer>
+    <footer class="mini">Tokens stay server-side. No keys in browser.</footer>
   </div>
 
   <script src="lib/analysis.js"></script>

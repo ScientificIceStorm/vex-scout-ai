@@ -3,40 +3,38 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VEX Scout AI (Free)</title>
+  <title>VEX Scout AI</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
   <div class="wrap">
-    <h1>VEX Scout AI (Free)</h1>
-    <p class="sub">Pick an event → load matches → paste livestream → tag strategies → export CSV.</p>
+    <header class="top">
+      <h1>VEX Scout AI</h1>
+      <div class="tag">Free • Cloudflare</div>
+    </header>
+    <p class="sub">Auto-load latest season → pick event → pick division → load matches → analyze teams → export CSV.</p>
 
-    <!-- API Keys -->
+    <!-- Seasons & Events -->
     <section class="card">
-      <h2>API Keys</h2>
-      <label>YouTube API key (restricted by referrer)</label>
-      <input id="ytKey" placeholder="Paste your YouTube API key here"/>
-    </section>
-
-    <!-- RoboEvents -->
-    <section class="card">
-      <h2>Step 1 — Load RoboEvents</h2>
+      <h2>Step 1 — Seasons & Events</h2>
       <div class="row">
-        <label>Season ID (optional)</label>
-        <input id="seasonId" placeholder="e.g., 203 (or leave blank)"/>
-        <button id="btnLoadEvents">Load events</button>
+        <label>Season</label>
+        <select id="seasonSelect"><option>Loading seasons…</option></select>
+        <button id="btnReloadSeasons">Reload</button>
       </div>
       <div class="row">
         <label>Event</label>
-        <select id="eventSelect"><option value="">— select —</option></select>
+        <select id="eventSelect"><option>Pick a season first…</option></select>
       </div>
       <div class="row">
         <label>Division</label>
-        <select id="divisionSelect"><option value="">— select —</option></select>
+        <select id="divisionSelect"><option>Pick an event first…</option></select>
         <button id="btnLoadMatches" disabled>Load matches</button>
       </div>
+      <div class="mini" id="status"></div>
     </section>
 
+    <!-- Matches -->
     <section class="card" id="matchesCard" hidden>
       <h2>Step 2 — Matches</h2>
       <table class="grid" id="matchesTable">
@@ -82,7 +80,7 @@
       </table>
     </section>
 
-    <footer class="mini">MVP. Free hosting on Cloudflare Pages. Your RoboEvents token is kept server-side.</footer>
+    <footer class="mini">Token stays server-side. No YouTube key in browser.</footer>
   </div>
 
   <script src="lib/analysis.js"></script>

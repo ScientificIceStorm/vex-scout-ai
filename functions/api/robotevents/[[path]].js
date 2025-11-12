@@ -1,9 +1,9 @@
 // Cloudflare Pages Function: /api/robotevents/*
-// Catch-all route uses [[path]].js on Cloudflare (not [...path])
+// Catch-all uses [[path]].js (Cloudflare convention)
 export async function onRequest({ request, env }) {
   const reqUrl = new URL(request.url);
 
-  // Handle CORS preflight for good measure
+  // CORS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -16,17 +16,14 @@ export async function onRequest({ request, env }) {
     });
   }
 
-  // Build upstream URL to RoboEvents v2
-  const suffix = reqUrl.pathname.replace(/^\/api\/robotevents\/?/, ""); // everything after our prefix
+  const suffix = reqUrl.pathname.replace(/^\/api\/robotevents\/?/, "");
   const upstream = new URL(`https://www.robotevents.com/api/v2/${suffix}`);
   upstream.search = reqUrl.search;
 
-  // Fail fast if token missing
   if (!env.ROBOTEVENTS_TOKEN) {
     return json({ error: "Missing ROBOTEVENTS_TOKEN" }, 500, reqUrl.origin);
   }
 
-  // Proxy
   const upstreamResp = await fetch(upstream.toString(), {
     headers: {
       "Accept": "application/json",
@@ -34,13 +31,11 @@ export async function onRequest({ request, env }) {
     },
   });
 
-  // Pass through body, normalize headers
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
   headers.set("Access-Control-Allow-Origin", reqUrl.origin);
   headers.set("Vary", "Origin");
 
-  // If RoboEvents sends non-2xx, bubble it up (helps debugging)
   return new Response(upstreamResp.body, { status: upstreamResp.status, headers });
 }
 

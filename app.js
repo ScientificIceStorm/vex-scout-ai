@@ -2,97 +2,190 @@
 const statusEl = document.getElementById("status");
 const seasonSelect = document.getElementById("seasonSelect");
 const btnReloadSeasons = document.getElementById("btnReloadSeasons");
-const eventSelect = document.getElementById("eventSelect");
+
+const eventSearchEl = document.getElementById("eventSearch");
+const eventFilterEl = document.getElementById("eventFilter");
+const btnRefreshEvents = document.getElementById("btnRefreshEvents");
+const eventsTable = document.getElementById("eventsTable");
+
+const divisionsCard = document.getElementById("divisionsCard");
 const divisionSelect = document.getElementById("divisionSelect");
 const btnLoadMatches = document.getElementById("btnLoadMatches");
+const testDivisionsLink = document.getElementById("testDivisionsLink");
+
 const matchesCard = document.getElementById("matchesCard");
 const matchesTable = document.getElementById("matchesTable").querySelector("tbody");
+
 const youtubeUrlEl = document.getElementById("youtubeUrl");
 const btnCheckVideo = document.getElementById("btnCheckVideo");
 const videoInfoEl = document.getElementById("videoInfo");
+
 const analysisCard = document.getElementById("analysisCard");
 const analysisTable = document.getElementById("analysisTable").querySelector("tbody");
 const allyTable = document.getElementById("allyTable").querySelector("tbody");
 const btnExport = document.getElementById("btnExport");
 
-let seasons=[], events=[], divisions=[], matches=[], teams=[];
+let seasons=[], eventsAll=[], eventsFiltered=[], divisions=[], matches=[], teams=[];
+let selectedEvent = null;
 let analysisRows=[]; // {id, match_id, match_name, team, side, auton, cycle, defense, endgame, penalties, rating, notes}
 
-// Load seasons on startup
+// Init
 window.addEventListener("load", init);
 btnReloadSeasons.onclick = init;
+btnRefreshEvents.onclick = refreshEvents;
+eventSearchEl.oninput = filterEvents;
+eventFilterEl.onchange = filterEvents;
 
+// ---- Seasons
 async function init(){
   try{
     setStatus("Loading seasons…");
-    const sres = await getSeasons(200);
+    const sres = await getSeasons(200,1);
     seasons = sres?.data || [];
     if(!seasons.length){ setStatus("No seasons found (check token)"); return; }
-
-    // Pick the latest by highest ID (RobotEvents increments by year)
     seasons.sort((a,b)=>a.id-b.id);
-    const latest = seasons[seasons.length-1];
+    const latest = seasons.at(-1);
 
-    seasonSelect.innerHTML = seasons.map(s=>`<option value="${s.id}" ${s.id===latest.id?"selected":""}>
-      ${s.name || ("Season "+s.id)}
-    </option>`).join("");
-
-    setStatus("Loading events…");
-    await loadEventsForSeason(latest.id);
+    seasonSelect.innerHTML = seasons.map(s=>`<option value="${s.id}" ${s.id===latest.id?"selected":""}>${s.name || ("Season "+s.id)}</option>`).join("");
+    await refreshEvents();
     setStatus("Ready.");
   }catch(e){
     setStatus(e.message);
   }
 }
 
-seasonSelect.onchange = async () => {
+seasonSelect.onchange = refreshEvents;
+
+async function refreshEvents(){
   const sid = seasonSelect.value;
   if(!sid) return;
+
+  // reset downstream UI
+  divisionsCard.hidden = true;
   matchesCard.hidden = true;
   analysisCard.hidden = true;
-  setStatus("Loading events…");
-  await loadEventsForSeason(sid);
-  setStatus("Ready.");
-};
+  selectedEvent = null;
 
-async function loadEventsForSeason(seasonId){
-  const res = await getEvents({ "season[]": seasonId, per_page: 200 });
-  events = res?.data || [];
-  eventSelect.innerHTML = `<option value="">— select —</option>` + events.map(ev => `<option value="${ev.id}">${ev.sku} — ${ev.name}</option>`).join("");
-  divisions = []; divisionSelect.innerHTML = `<option value="">— select —</option>`;
-  matches = []; matchesTable.innerHTML = ""; matchesCard.hidden = true;
-  teams = []; analysisRows=[]; analysisTable.innerHTML=""; analysisCard.hidden=true;
+  setStatus("Loading events…");
+  eventsAll = await fetchAllEventsForSeason(sid);
+  filterEvents();
+  setStatus(`Loaded ${eventsAll.length} events.`);
 }
 
-// When event changes, load divisions + teams
-eventSelect.onchange = async () => {
-  const id = eventSelect.value;
-  divisionSelect.innerHTML = `<option value="">Loading…</option>`;
-  matchesTable.innerHTML = "";
-  matchesCard.hidden = true;
-  analysisTable.innerHTML = "";
-  analysisRows = [];
-  analysisCard.hidden = true;
+async function fetchAllEventsForSeason(seasonId){
+  // pull multiple pages until empty or 5 pages (sane limit)
+  const out = [];
+  for(let page=1; page<=5; page++){
+    try{
+      const res = await getEvents({ "season[]": seasonId, per_page: 200 }, page);
+      const list = res?.data || [];
+      out.push(...list);
+      if(!res?.meta?.next_page_url && list.length < 200) break;
+    }catch(e){
+      // If one page fails, stop gracefully
+      console.warn("Events page failed:", page, e);
+      break;
+    }
+  }
+  return out;
+}
 
-  if(!id) return;
+// ---- Events table & filters
+function filterEvents(){
+  const q = (eventSearchEl.value || "").toLowerCase().trim();
+  const mode = eventFilterEl.value; // all | upcoming
+  const now = Date.now();
+
+  eventsFiltered = eventsAll.filter(ev => {
+    const hay = [
+      ev.sku, ev.name,
+      ev.location?.city, ev.location?.region, ev.location?.state, ev.location?.country
+    ].filter(Boolean).join(" ").toLowerCase();
+    const passText = q ? hay.includes(q) : true;
+
+    let passUpcoming = true;
+    if(mode === "upcoming"){
+      const end = new Date(ev.end).getTime();
+      passUpcoming = isNaN(end) ? true : end >= now;
+    }
+    return passText && passUpcoming;
+  });
+
+  renderEventsTable();
+}
+
+function renderEventsTable(){
+  if(!eventsFiltered.length){
+    eventsTable.innerHTML = `<tr><td colspan="6">No events found. Try clearing filters.</td></tr>`;
+    return;
+  }
+  eventsTable.innerHTML = eventsFiltered.map(ev=>{
+    const loc = [ev.location?.city, ev.location?.region || ev.location?.state, ev.location?.country].filter(Boolean).join(", ");
+    const dates = ev.start && ev.end ? fmtDate(ev.start)+" – "+fmtDate(ev.end) : (ev.start || "");
+    const program = ev.program?.code || ev.program?.name || "";
+    return `<tr>
+      <td>${safe(ev.sku)}</td>
+      <td>${safe(ev.name)}</td>
+      <td>${safe(loc)}</td>
+      <td>${safe(dates)}</td>
+      <td>${safe(program)}</td>
+      <td><button data-id="${ev.id}" class="btnSelectEvent">Select</button></td>
+    </tr>`;
+  }).join("");
+
+  document.querySelectorAll(".btnSelectEvent").forEach(btn=>{
+    btn.onclick = () => selectEvent(btn.dataset.id);
+  });
+}
+
+async function selectEvent(eventId){
   try{
-    setStatus("Loading divisions & teams…");
-    const [dres, tres] = await Promise.all([getDivisions(id), getTeamsByEvent(id)]);
-    divisions = dres?.data || [];
-    teams = tres?.data || [];
-    divisionSelect.innerHTML = `<option value="">— select —</option>` + divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
-    btnLoadMatches.disabled = false;
-    setStatus("Ready.");
-  }catch(e){ setStatus(e.message); }
-};
+    if(!eventId) { setStatus("Invalid event id"); return; }
+    selectedEvent = eventsAll.find(e => String(e.id) === String(eventId));
+    if(!selectedEvent){ setStatus("Event not in list"); return; }
 
-// Load matches for division
+    setStatus(`Loading divisions & teams for ${selectedEvent.sku}…`);
+    divisionsCard.hidden = false; // reveal card
+    divisionSelect.innerHTML = `<option>Loading…</option>`;
+    testDivisionsLink.textContent = "";
+    testDivisionsLink.removeAttribute("href");
+
+    const [dres, tres] = await Promise.all([
+      getDivisions(eventId),
+      getTeamsByEvent(eventId)
+    ]);
+
+    const divisionsData = dres?.data || [];
+    divisions = divisionsData;
+    teams = tres?.data || [];
+
+    if(!divisions.length){
+      divisionSelect.innerHTML = `<option value="">(No divisions found for this event)</option>`;
+      btnLoadMatches.disabled = true;
+    } else {
+      divisionSelect.innerHTML = `<option value="">— select —</option>` + divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
+      btnLoadMatches.disabled = false;
+    }
+
+    // Provide a quick test link so you can see the raw JSON if needed
+    testDivisionsLink.textContent = "Test divisions endpoint";
+    testDivisionsLink.href = `/api/robotevents/events/${encodeURIComponent(eventId)}/divisions`;
+
+    matchesCard.hidden = true;
+    analysisCard.hidden = true;
+    setStatus("Ready.");
+  }catch(e){
+    setStatus(e.message);
+  }
+}
+
+// ---- Matches
 btnLoadMatches.onclick = async () => {
   try{
     matchesTable.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
     const id = divisionSelect.value;
-    if(!id) return;
-    const mres = await getMatchesByDivision(id, 250);
+    if(!id){ setStatus("Pick a division"); return; }
+    const mres = await getMatchesByDivision(id, 250, 1);
     matches = mres?.data || [];
     renderMatches();
   }catch(e){ setStatus(e.message); }
@@ -121,6 +214,7 @@ function renderMatches(){
   });
 }
 
+// ---- Analysis
 function openAnalysis(match){
   const rows = [];
   const red = [match.alliances?.red?.teams?.[0], match.alliances?.red?.teams?.[1]].filter(Boolean);
@@ -234,7 +328,7 @@ btnExport.onclick = () => {
   a.click();
 };
 
-// YouTube check (uses server function; no client key)
+// YouTube check
 btnCheckVideo.onclick = async () => {
   videoInfoEl.textContent = "Checking…";
   const vid = extractYouTubeVideoId(youtubeUrlEl.value.trim());
@@ -250,4 +344,7 @@ btnCheckVideo.onclick = async () => {
   }
 };
 
+// helpers
 function setStatus(msg){ statusEl.textContent = msg; }
+function safe(s){ return (s??"").toString().replace(/[<>&]/g, c=>({ "<":"&lt;",">":"&gt;","&":"&amp;" }[c])); }
+function fmtDate(d){ const t = new Date(d); return isNaN(t)? String(d||""): t.toLocaleDateString(); }

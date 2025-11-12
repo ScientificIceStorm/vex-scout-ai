@@ -1,7 +1,7 @@
 // Elements
-const ytKeyEl = document.getElementById("ytKey");
-const seasonIdEl = document.getElementById("seasonId");
-const btnLoadEvents = document.getElementById("btnLoadEvents");
+const statusEl = document.getElementById("status");
+const seasonSelect = document.getElementById("seasonSelect");
+const btnReloadSeasons = document.getElementById("btnReloadSeasons");
 const eventSelect = document.getElementById("eventSelect");
 const divisionSelect = document.getElementById("divisionSelect");
 const btnLoadMatches = document.getElementById("btnLoadMatches");
@@ -15,26 +15,59 @@ const analysisTable = document.getElementById("analysisTable").querySelector("tb
 const allyTable = document.getElementById("allyTable").querySelector("tbody");
 const btnExport = document.getElementById("btnExport");
 
-let events=[], divisions=[], matches=[], teams=[];
+let seasons=[], events=[], divisions=[], matches=[], teams=[];
 let analysisRows=[]; // {id, match_id, match_name, team, side, auton, cycle, defense, endgame, penalties, rating, notes}
 
-// Load events
-btnLoadEvents.onclick = async () => {
+// Load seasons on startup
+window.addEventListener("load", init);
+btnReloadSeasons.onclick = init;
+
+async function init(){
   try{
-    eventSelect.innerHTML = `<option value="">Loading...</option>`;
-    const params = {};
-    if(seasonIdEl.value.trim()) params["season[]"] = seasonIdEl.value.trim();
-    params.per_page = 200;
-    const res = await getEvents(params);
-    events = res?.data || [];
-    eventSelect.innerHTML = `<option value="">— select —</option>` + events.map(e=>`<option value="${e.id}">${e.sku} — ${e.name}</option>`).join("");
-  }catch(e){ alert(e.message); }
+    setStatus("Loading seasons…");
+    const sres = await getSeasons(200);
+    seasons = sres?.data || [];
+    if(!seasons.length){ setStatus("No seasons found (check token)"); return; }
+
+    // Pick the latest by highest ID (RobotEvents increments by year)
+    seasons.sort((a,b)=>a.id-b.id);
+    const latest = seasons[seasons.length-1];
+
+    seasonSelect.innerHTML = seasons.map(s=>`<option value="${s.id}" ${s.id===latest.id?"selected":""}>
+      ${s.name || ("Season "+s.id)}
+    </option>`).join("");
+
+    setStatus("Loading events…");
+    await loadEventsForSeason(latest.id);
+    setStatus("Ready.");
+  }catch(e){
+    setStatus(e.message);
+  }
+}
+
+seasonSelect.onchange = async () => {
+  const sid = seasonSelect.value;
+  if(!sid) return;
+  matchesCard.hidden = true;
+  analysisCard.hidden = true;
+  setStatus("Loading events…");
+  await loadEventsForSeason(sid);
+  setStatus("Ready.");
 };
+
+async function loadEventsForSeason(seasonId){
+  const res = await getEvents({ "season[]": seasonId, per_page: 200 });
+  events = res?.data || [];
+  eventSelect.innerHTML = `<option value="">— select —</option>` + events.map(ev => `<option value="${ev.id}">${ev.sku} — ${ev.name}</option>`).join("");
+  divisions = []; divisionSelect.innerHTML = `<option value="">— select —</option>`;
+  matches = []; matchesTable.innerHTML = ""; matchesCard.hidden = true;
+  teams = []; analysisRows=[]; analysisTable.innerHTML=""; analysisCard.hidden=true;
+}
 
 // When event changes, load divisions + teams
 eventSelect.onchange = async () => {
   const id = eventSelect.value;
-  divisionSelect.innerHTML = `<option value="">Loading...</option>`;
+  divisionSelect.innerHTML = `<option value="">Loading…</option>`;
   matchesTable.innerHTML = "";
   matchesCard.hidden = true;
   analysisTable.innerHTML = "";
@@ -43,24 +76,26 @@ eventSelect.onchange = async () => {
 
   if(!id) return;
   try{
+    setStatus("Loading divisions & teams…");
     const [dres, tres] = await Promise.all([getDivisions(id), getTeamsByEvent(id)]);
     divisions = dres?.data || [];
     teams = tres?.data || [];
     divisionSelect.innerHTML = `<option value="">— select —</option>` + divisions.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
     btnLoadMatches.disabled = false;
-  }catch(e){ alert(e.message); }
+    setStatus("Ready.");
+  }catch(e){ setStatus(e.message); }
 };
 
 // Load matches for division
 btnLoadMatches.onclick = async () => {
   try{
-    matchesTable.innerHTML = `<tr><td colspan="5">Loading...</td></tr>`;
+    matchesTable.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
     const id = divisionSelect.value;
     if(!id) return;
     const mres = await getMatchesByDivision(id, 250);
     matches = mres?.data || [];
     renderMatches();
-  }catch(e){ alert(e.message); }
+  }catch(e){ setStatus(e.message); }
 };
 
 function renderMatches(){
@@ -93,7 +128,6 @@ function openAnalysis(match){
   for(const t of red) rows.push(blankRow(match,t,"red"));
   for(const t of blue) rows.push(blankRow(match,t,"blue"));
 
-  // merge without duplicates
   for(const r of rows){
     if(!analysisRows.find(x=>x.id===r.id)) analysisRows.push(r);
   }
@@ -132,7 +166,6 @@ function renderAnalysis(){
     </tr>
   `).join("");
 
-  // wire up inputs
   document.querySelectorAll(".num").forEach(inp=>{
     inp.onchange = () => {
       const id = inp.dataset.id, k = inp.dataset.k;
@@ -169,7 +202,6 @@ function rateRow(id){
 }
 
 function renderAlliances(){
-  // average per team
   const byTeam = {};
   for(const r of analysisRows){
     if(!byTeam[r.team]) byTeam[r.team] = { team:r.team, auton:0, cycle:0, defense:0, endgame:0, penalties:0, n:0 };
@@ -202,14 +234,13 @@ btnExport.onclick = () => {
   a.click();
 };
 
-// YouTube check
+// YouTube check (uses server function; no client key)
 btnCheckVideo.onclick = async () => {
-  videoInfoEl.textContent = "Checking...";
-  const key = ytKeyEl.value.trim();
+  videoInfoEl.textContent = "Checking…";
   const vid = extractYouTubeVideoId(youtubeUrlEl.value.trim());
-  if(!key || !vid){ videoInfoEl.textContent = "Need API key and a valid YouTube URL."; return; }
+  if(!vid){ videoInfoEl.textContent = "Enter a valid YouTube URL."; return; }
   try{
-    const res = await fetchYouTubeVideo(vid, key);
+    const res = await fetchYouTubeVideo(vid);
     const item = res?.items?.[0];
     if(!item){ videoInfoEl.textContent = "Not found."; return; }
     const live = !!item.liveStreamingDetails;
@@ -218,3 +249,5 @@ btnCheckVideo.onclick = async () => {
     videoInfoEl.textContent = e.message;
   }
 };
+
+function setStatus(msg){ statusEl.textContent = msg; }

@@ -1,0 +1,12 @@
+*{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{margin:8px 0 0} .sub{opacity:.8;margin:4px 0 16px}
+.card{background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
+label{min-width:160px}
+input,select,button{padding:8px 10px;border:1px solid #ccc;border-radius:8px}
+button{cursor:pointer}
+.grid{width:100%;border-collapse:collapse}
+.grid th,.grid td{border-top:1px solid #eee;padding:8px;vertical-align:middle}
+.grid thead th{border-top:none;background:#fafafa;text-align:left}
+.mini{opacity:.7;font-size:13px;margin-top:6px}

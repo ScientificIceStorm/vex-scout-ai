@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VEX Scout AI (Free)</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="wrap">
+    <h1>VEX Scout AI (Free)</h1>
+    <p class="sub">Pick an event → load matches → paste livestream → tag strategies → export CSV.</p>
+
+    <!-- API Keys -->
+    <section class="card">
+      <h2>API Keys</h2>
+      <label>YouTube API key (restricted by referrer)</label>
+      <input id="ytKey" placeholder="Paste your YouTube API key here"/>
+    </section>
+
+    <!-- RoboEvents -->
+    <section class="card">
+      <h2>Step 1 — Load RoboEvents</h2>
+      <div class="row">
+        <label>Season ID (optional)</label>
+        <input id="seasonId" placeholder="e.g., 203 (or leave blank)"/>
+        <button id="btnLoadEvents">Load events</button>
+      </div>
+      <div class="row">
+        <label>Event</label>
+        <select id="eventSelect"><option value="">— select —</option></select>
+      </div>
+      <div class="row">
+        <label>Division</label>
+        <select id="divisionSelect"><option value="">— select —</option></select>
+        <button id="btnLoadMatches" disabled>Load matches</button>
+      </div>
+    </section>
+
+    <section class="card" id="matchesCard" hidden>
+      <h2>Step 2 — Matches</h2>
+      <table class="grid" id="matchesTable">
+        <thead>
+          <tr><th>Match</th><th>Red</th><th>Blue</th><th>Scores</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- YouTube -->
+    <section class="card">
+      <h2>Step 3 — Livestream / VOD</h2>
+      <div class="row">
+        <label>YouTube URL</label>
+        <input id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..."/>
+        <button id="btnCheckVideo">Check</button>
+      </div>
+      <div id="videoInfo" class="mini"></div>
+    </section>
+
+    <!-- Analysis -->
+    <section class="card" id="analysisCard" hidden>
+      <h2>Step 4 — Tag Strategy per Team</h2>
+      <table class="grid" id="analysisTable">
+        <thead>
+          <tr>
+            <th>Match</th><th>Team</th><th>Side</th>
+            <th>Auton</th><th>Cycle</th><th>Defense</th><th>Endgame</th><th>Penalties</th>
+            <th>Rating</th><th>Notes</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="row" style="margin-top:8px">
+        <button id="btnExport">Export CSV</button>
+      </div>
+
+      <h3 style="margin-top:20px">Suggested Alliances (Top 10)</h3>
+      <table class="grid" id="allyTable">
+        <thead><tr><th>Team A</th><th>Team B</th><th>Synergy</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer class="mini">MVP. Free hosting on Cloudflare Pages. Your RoboEvents token is kept server-side.</footer>
+  </div>
+
+  <script src="lib/analysis.js"></script>
+  <script src="lib/youtube.js"></script>
+  <script src="lib/robotevents.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
